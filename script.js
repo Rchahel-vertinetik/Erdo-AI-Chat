@@ -1,68 +1,84 @@
 const arcgisUrl = "https://services-eu1.arcgis.com/8uHkpVrXUjYCyrO4/ArcGIS/rest/services/TreeCrowns_BE_Bolstone_13032025_/FeatureServer/0/queryy";
 
+const openaiApiKey = "YOUR_OPENAI_API_KEY";  // Replace with your OpenAI API key
+
 function handleKeyPress(event) {
     if (event.key === "Enter") processQuery();
 }
 
 async function processQuery() {
-    let userMessage = document.getElementById("userInput").value;
-    if (!userMessage.trim()) return;
+    let userMessage = document.getElementById("userInput").value.trim();
+    if (!userMessage) return;
 
-    // Display user message
     addMessage(userMessage, "user");
 
-    // Convert text input to ArcGIS API query
-    let query = parseNaturalLanguage(userMessage);
-    
-    if (!query) {
-        addMessage("I didn’t understand that. Try something like: 'Get all feature IDs where city = Edinburgh.'", "bot");
+    // Process query with GPT
+    let structuredQuery = await getAIQuery(userMessage);
+    if (!structuredQuery) {
+        addMessage("I didn't understand that. Try asking about feature stats or IDs.", "bot");
         return;
     }
 
-    let url = `${arcgisUrl}?${query}&f=json`;
+    // Fetch data from ArcGIS API
+    let queryUrl = `${arcgisUrl}?${structuredQuery}&f=json`;
+    let response = await fetch(queryUrl);
+    let data = await response.json();
 
-    try {
-        let response = await fetch(url);
-        let data = await response.json();
-        
-        if (data.features.length > 0) {
-            let featureIDs = data.features.map(feature => feature.attributes.OBJECTID);
-            addMessage(`Found ${featureIDs.length} features. IDs: ${featureIDs.join(", ")}`, "bot");
-        } else {
-            addMessage("No matching features found.", "bot");
-        }
-    } catch (error) {
-        addMessage("Error fetching data.", "bot");
-        console.error(error);
+    if (!data.features || data.features.length === 0) {
+        addMessage("No matching features found.", "bot");
+        return;
     }
 
+    // Process and display results
+    processResults(userMessage, data.features);
     document.getElementById("userInput").value = "";
 }
 
-function parseNaturalLanguage(userMessage) {
-    userMessage = userMessage.toLowerCase();
+// 🎯 Use ChatGPT to understand user queries and convert them to ArcGIS API filters
+async function getAIQuery(userMessage) {
+    let prompt = `
+    Convert the following user request into an ArcGIS REST API query:
+    "${userMessage}"
+    Provide only the query string, not explanations.
+    Example:
+    - User: "Get feature IDs for California"
+    - Output: "where=state='California'&outFields=OBJECTID&returnGeometry=false"
+    `;
 
-    // Example patterns
-    if (userMessage.includes("how many")) {
-        return "where=1=1&returnCountOnly=true";
-    }
-    if (userMessage.includes("feature ids")) {
-        let match = userMessage.match(/where (.+)/);
-        let whereClause = match ? encodeURIComponent(match[1]) : "1=1";
-        return `where=${whereClause}&outFields=OBJECTID&returnGeometry=false`;
-    }
-    if (userMessage.includes("sum population")) {
-        return "where=1=1&outStatistics=[{statisticType:'sum',onStatisticField:'POP2000',outStatisticFieldName:'total_population'}]";
-    }
+    let response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openaiApiKey}`
+        },
+        body: JSON.stringify({
+            model: "gpt-4",
+            messages: [{ role: "system", content: prompt }]
+        })
+    });
 
-    return null; // If the query is not understood
+    let data = await response.json();
+    return data.choices[0].message.content.trim();
 }
 
-function addMessage(message, sender) {
-    let chatbox = document.getElementById("messages");
-    let msgDiv = document.createElement("div");
-    msgDiv.className = sender;
-    msgDiv.textContent = message;
-    chatbox.appendChild(msgDiv);
-    chatbox.scrollTop = chatbox.scrollHeight;
+// 🎯 Process and display data (text and charts)
+function processResults(userMessage, features) {
+    let featureIDs = features.map(f => f.attributes.OBJECTID);
+    
+    if (userMessage.includes("feature IDs")) {
+        addMessage(`Feature IDs: ${featureIDs.join(", ")}`, "bot");
+    } else if (userMessage.includes("count")) {
+        addMessage(`Total features found: ${features.length}`, "bot");
+    } else if (userMessage.includes("population")) {
+        let totalPop = features.reduce((sum, f) => sum + (f.attributes.POP2000 || 0), 0);
+        addMessage(`Total population: ${totalPop}`, "bot");
+    } else if (userMessage.includes("chart")) {
+        let populations = features.map(f => f.attributes.POP2000 || 0);
+        let labels = features.map(f => f.attributes.NAME || "Unknown");
+        generateChart(labels, populations);
+    } else {
+        addMessage("I retrieved the data but I'm not sure what stats to compute.", "bot");
+    }
 }
+
+// 🎯 Display chat messages
