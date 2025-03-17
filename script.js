@@ -1,7 +1,5 @@
 const arcgisUrl = "https://services-eu1.arcgis.com/8uHkpVrXUjYCyrO4/ArcGIS/rest/services/TreeCrowns_BE_Bolstone_13032025_/FeatureServer/0/queryy";
-
-const openaiApiKey = "YOUR_OPENAI_API_KEY";  // Replace with your OpenAI API key
-
+const backendUrl = "https://4i1yko9sdh.execute-api.eu-west-1.amazonaws.com/"; 
 function handleKeyPress(event) {
     if (event.key === "Enter") processQuery();
 }
@@ -12,73 +10,61 @@ async function processQuery() {
 
     addMessage(userMessage, "user");
 
-    // Process query with GPT
-    let structuredQuery = await getAIQuery(userMessage);
-    if (!structuredQuery) {
-        addMessage("I didn't understand that. Try asking about feature stats or IDs.", "bot");
-        return;
+    try {
+        let response = await fetch(backendUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: userMessage })
+        });
+
+        let query = await response.json();
+        if (!query || query.error) {
+            addMessage("I couldn't process your request. Try again.", "bot");
+            return;
+        }
+
+        fetchArcGISData(query);
+    } catch (error) {
+        addMessage("Error contacting the server.", "bot");
+        console.error(error);
     }
 
-    // Fetch data from ArcGIS API
-    let queryUrl = `${arcgisUrl}?${structuredQuery}&f=json`;
-    let response = await fetch(queryUrl);
-    let data = await response.json();
-
-    if (!data.features || data.features.length === 0) {
-        addMessage("No matching features found.", "bot");
-        return;
-    }
-
-    // Process and display results
-    processResults(userMessage, data.features);
     document.getElementById("userInput").value = "";
 }
 
-// 🎯 Use ChatGPT to understand user queries and convert them to ArcGIS API filters
-async function getAIQuery(userMessage) {
-    let prompt = `
-    Convert the following user request into an ArcGIS REST API query:
-    "${userMessage}"
-    Provide only the query string, not explanations.
-    Example:
-    - User: "Get feature IDs for California"
-    - Output: "where=state='California'&outFields=OBJECTID&returnGeometry=false"
-    `;
-
-    let response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openaiApiKey}`
-        },
-        body: JSON.stringify({
-            model: "gpt-4",
-            messages: [{ role: "system", content: prompt }]
-        })
-    });
-
-    let data = await response.json();
-    return data.choices[0].message.content.trim();
-}
-
-// 🎯 Process and display data (text and charts)
-function processResults(userMessage, features) {
-    let featureIDs = features.map(f => f.attributes.OBJECTID);
+// Fetch ArcGIS REST API data
+async function fetchArcGISData(query) {
+    const arcgisUrl = "https://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/2/query";
     
-    if (userMessage.includes("feature IDs")) {
-        addMessage(`Feature IDs: ${featureIDs.join(", ")}`, "bot");
-    } else if (userMessage.includes("count")) {
-        addMessage(`Total features found: ${features.length}`, "bot");
-    } else if (userMessage.includes("population")) {
-        let totalPop = features.reduce((sum, f) => sum + (f.attributes.POP2000 || 0), 0);
-        addMessage(`Total population: ${totalPop}`, "bot");
-    } else if (userMessage.includes("chart")) {
-        let populations = features.map(f => f.attributes.POP2000 || 0);
-        let labels = features.map(f => f.attributes.NAME || "Unknown");
-        generateChart(labels, populations);
-    } else {
-        addMessage("I retrieved the data but I'm not sure what stats to compute.", "bot");
+    try {
+        let response = await fetch(`${arcgisUrl}?${query}&f=json`);
+        let data = await response.json();
+
+        if (!data.features || data.features.length === 0) {
+            addMessage("No matching features found.", "bot");
+            return;
+        }
+
+        processResults(data.features);
+    } catch (error) {
+        addMessage("Error fetching ArcGIS data.", "bot");
+        console.error(error);
     }
 }
 
-// 🎯 Display chat messages
+// Process ArcGIS results
+function processResults(features) {
+    let featureIDs = features.map(f => f.attributes.OBJECTID);
+    addMessage(`Found ${features.length} features. IDs: ${featureIDs.join(", ")}`, "bot");
+}
+
+// Display chat messages
+function addMessage(message, sender) {
+    let chatbox = document.getElementById("messages");
+    let msgDiv = document.createElement("div");
+    msgDiv.className = sender;
+    msgDiv.textContent = message;
+    chatbox.appendChild(msgDiv);
+    chatbox.scrollTop = chatbox.scrollHeight;
+}
+
