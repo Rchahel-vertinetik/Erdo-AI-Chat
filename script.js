@@ -1,4 +1,3 @@
-const arcgisUrl = "https://services-eu1.arcgis.com/8uHkpVrXUjYCyrO4/ArcGIS/rest/services/TreeCrowns_BE_Bolstone_13032025_/FeatureServer/0/queryy";
 const backendUrl = "https://4i1yko9sdh.execute-api.eu-west-1.amazonaws.com/"; 
 function handleKeyPress(event) {
     if (event.key === "Enter") processQuery();
@@ -34,7 +33,7 @@ async function processQuery() {
 
 // Fetch ArcGIS REST API data
 async function fetchArcGISData(query) {
-    const arcgisUrl = "https://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/2/query";
+    const arcgisUrl = "https://services-eu1.arcgis.com/8uHkpVrXUjYCyrO4/ArcGIS/rest/services/TreeCrowns_BE_Bolstone_13032025_/FeatureServer/0/query";
     
     try {
         let response = await fetch(`${arcgisUrl}?${query}&f=json`);
