@@ -1,4 +1,4 @@
-const backendUrl = "https://4i1yko9sdh.execute-api.eu-west-1.amazonaws.com/"; 
+const backendUrl = "https://4i1yko9sdh.execute-api.eu-west-1.amazonaws.com/prod/ask-gpt"; 
 function handleKeyPress(event) {
     if (event.key === "Enter") processQuery();
 }
