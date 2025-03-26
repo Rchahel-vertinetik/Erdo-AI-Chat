@@ -1,69 +1,43 @@
-const backendUrl = "https://4i1yko9sdh.execute-api.eu-west-1.amazonaws.com/prod/ask-gpt"; 
-function handleKeyPress(event) {
-    if (event.key === "Enter") processQuery();
-}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Send Task to Heroku</title>
+</head>
+<body>
+  <input type="text" id="userInput" placeholder="Enter your task..." onkeypress="handleKeyPress(event)" />
+  <button onclick="sendTask()">Send Task</button>
 
-async function processQuery() {
-    let userMessage = document.getElementById("userInput").value.trim();
-    if (!userMessage) return;
+  <script>
+    function handleKeyPress(event) {
+      if (event.key === "Enter") sendTask();
+    }
 
-    addMessage(userMessage, "user");
+    async function sendTask() {
+      const userMessage = document.getElementById("userInput").value.trim();
+      if (!userMessage) return;
 
-    try {
-        let response = await fetch(backendUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: userMessage })
+      console.log("Sending POST request to Heroku app...");
+
+      try {
+        const response = await fetch("https://dry-garden-99647-4f7890081fda.herokuapp.com/process", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            task: userMessage,
+            task_name: "example_task"
+          })
         });
 
-        let query = await response.json();
-        if (!query || query.error) {
-            addMessage("I couldn't process your request. Try again.", "bot");
-            return;
-        }
+        const data = await response.json();
+        console.log("Response:", data);
+      } catch (error) {
+        console.error("Error:", error);
+      }
 
-        fetchArcGISData(query);
-    } catch (error) {
-        addMessage("Error contacting the server.", "bot");
-        console.error(error);
+      document.getElementById("userInput").value = "";
     }
-
-    document.getElementById("userInput").value = "";
-}
-
-// Fetch ArcGIS REST API data
-async function fetchArcGISData(query) {
-    const arcgisUrl = "https://services-eu1.arcgis.com/8uHkpVrXUjYCyrO4/ArcGIS/rest/services/TreeCrowns_BE_Bolstone_13032025_/FeatureServer/0/query";
-    
-    try {
-        let response = await fetch(`${arcgisUrl}?${query}&f=json`);
-        let data = await response.json();
-
-        if (!data.features || data.features.length === 0) {
-            addMessage("No matching features found.", "bot");
-            return;
-        }
-
-        processResults(data.features);
-    } catch (error) {
-        addMessage("Error fetching ArcGIS data.", "bot");
-        console.error(error);
-    }
-}
-
-// Process ArcGIS results
-function processResults(features) {
-    let featureIDs = features.map(f => f.attributes.OBJECTID);
-    addMessage(`Found ${features.length} features. IDs: ${featureIDs.join(", ")}`, "bot");
-}
-
-// Display chat messages
-function addMessage(message, sender) {
-    let chatbox = document.getElementById("messages");
-    let msgDiv = document.createElement("div");
-    msgDiv.className = sender;
-    msgDiv.textContent = message;
-    chatbox.appendChild(msgDiv);
-    chatbox.scrollTop = chatbox.scrollHeight;
-}
-
+  </script>
+</body>
+</html>
