@@ -1,23 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ArcGIS AI Chatbot</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ArcGIS AI Chatbot</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-    <h1>ArcGIS AI Chatbot</h1>
+  <h1>ArcGIS AI Chatbot</h1>
 
-    <div id="chatbox">
-        <div id="messages"></div>
-        <input type="text" id="userInput" placeholder="Ask about features..." onkeypress="handleKeyPress(event)">
-        <button onclick="processQuery()">Send</button>
-    </div>
+  <div id="chatbox">
+    <div id="messages"></div>
+    <input
+      type="text"
+      id="userInput"
+      placeholder="Ask about features..."
+      onkeypress="handleKeyPress(event)"
+    />
+    <button onclick="sendTask()">Send</button>
+  </div>
 
-    <canvas id="chartCanvas"></canvas>
+  <canvas id="chartCanvas"></canvas>
 
-    <script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

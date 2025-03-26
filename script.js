@@ -2,12 +2,18 @@ function handleKeyPress(event) {
   if (event.key === "Enter") sendTask();
 }
 
+function getTaskNameFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("task_name") || "default_task";
+}
+
 async function sendTask() {
   const userMessage = document.getElementById("userInput").value.trim();
   if (!userMessage) return;
 
+  const taskName = getTaskNameFromURL();
   addMessage(userMessage, "user");
-  console.log("Sending POST request to Heroku app...");
+  console.log("Sending POST request to Heroku app with task_name:", taskName);
 
   try {
     const response = await fetch("https://dry-garden-99647-4f7890081fda.herokuapp.com/process", {
@@ -17,7 +23,7 @@ async function sendTask() {
       },
       body: JSON.stringify({
         task: userMessage,
-        task_name: "example_task"
+        task_name: taskName
       })
     });
 
