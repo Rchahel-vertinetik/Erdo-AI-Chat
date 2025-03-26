@@ -13,7 +13,9 @@ async function sendTask() {
 
   const taskName = getTaskNameFromURL();
   addMessage(userMessage, "user");
-  console.log("Sending POST request to Heroku app with task_name:", taskName);
+
+  // Show placeholder "waiting" message and keep reference
+  const botMessageElement = addMessage("Processing... please wait.", "bot");
 
   try {
     const response = await fetch("https://dry-garden-99647-4f7890081fda.herokuapp.com/process", {
@@ -29,14 +31,17 @@ async function sendTask() {
 
     const data = await response.json();
     const reply = data.message || JSON.stringify(data);
-    addMessage(reply, "bot");
+
+    // Update the same message element instead of adding a new one
+    botMessageElement.textContent = reply;
   } catch (error) {
     console.error("Error:", error);
-    addMessage("Failed to reach the server.", "bot");
+    botMessageElement.textContent = "Failed to reach the server.";
   }
 
   document.getElementById("userInput").value = "";
 }
+
 
 function addMessage(message, sender) {
   const chatbox = document.getElementById("messages");
@@ -45,4 +50,5 @@ function addMessage(message, sender) {
   msgDiv.textContent = message;
   chatbox.appendChild(msgDiv);
   chatbox.scrollTop = chatbox.scrollHeight;
+  return msgDiv; // ← return the created element
 }
