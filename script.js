@@ -14,8 +14,11 @@ async function sendTask() {
   const taskName = getTaskNameFromURL();
   addMessage(userMessage, "user");
 
-  // Show placeholder "waiting" message and keep reference
-  const botMessageElement = addMessage("Processing... please wait.", "bot");
+  // Create a container for the spinner animation
+  const botMessageElement = addMessage("", "bot");
+  const spinner = document.createElement("div");
+  spinner.className = "spinner";
+  botMessageElement.appendChild(spinner);
 
   try {
     const response = await fetch("https://dry-garden-99647-4f7890081fda.herokuapp.com/process", {
@@ -32,7 +35,7 @@ async function sendTask() {
     const data = await response.json();
     const reply = data.message || JSON.stringify(data);
 
-    // Update the same message element instead of adding a new one
+    // Remove spinner and set text content to reply
     botMessageElement.textContent = reply;
   } catch (error) {
     console.error("Error:", error);
@@ -42,7 +45,6 @@ async function sendTask() {
   document.getElementById("userInput").value = "";
 }
 
-
 function addMessage(message, sender) {
   const chatbox = document.getElementById("messages");
   const msgDiv = document.createElement("div");
@@ -50,5 +52,5 @@ function addMessage(message, sender) {
   msgDiv.textContent = message;
   chatbox.appendChild(msgDiv);
   chatbox.scrollTop = chatbox.scrollHeight;
-  return msgDiv; // ← return the created element
+  return msgDiv; // return the created element
 }
