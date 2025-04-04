@@ -21,7 +21,7 @@ async function sendTask() {
   botMessageElement.appendChild(spinner);
 
   try {
-    const response = await fetch("https://dry-garden-99647-4f7890081fda.herokuapp.com/process", {
+    const response = await fetch("https://llmgeo-406981047289.us-central1.run.app/process", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
