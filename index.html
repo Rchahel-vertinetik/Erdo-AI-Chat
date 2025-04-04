@@ -17,15 +17,17 @@
         onkeypress="handleKeyPress(event)"
       />
     
-      <div class="dropdown">
-        <button class="dropbtn">⚙️ Actions</button>
-        <div class="dropdown-content">
-          <button onclick="sendTask()">➤ Send</button>
-          <button onclick="clearChat()">🧹 Clear Chat</button>
-          <button onclick="sendClearMap()">🗺️❌ Clear Map</button>
+      <div class="split-button">
+        <button onclick="sendTask()">Send</button>
+        <div class="dropdown">
+          <button class="dropbtn">▼</button>
+          <div class="dropdown-content">
+            <button onclick="clearChat()">🧹 Clear Chat</button>
+            <button onclick="sendClearMap()">🗺️❌ Clear Map</button>
+          </div>
         </div>
       </div>
-    </div>    
+    </div>     
     </div>    
   </div>
 
