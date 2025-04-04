@@ -16,8 +16,10 @@ async function sendTask() {
 
   // Create a container for the spinner animation
   const botMessageElement = addMessage("", "bot");
-  const spinner = document.createElement("div");
-  spinner.className = "spinner";
+  const spinner = document.createElement("img");
+  spinner.src = "assets/logo-spinner.png";
+  spinner.className = "logo-spinner";
+  spinner.alt = "Loading...";  
   botMessageElement.appendChild(spinner);
 
   try {
@@ -53,4 +55,13 @@ function addMessage(message, sender) {
   chatbox.appendChild(msgDiv);
   chatbox.scrollTop = chatbox.scrollHeight;
   return msgDiv; // return the created element
+}
+function clearChat() {
+  const chatbox = document.getElementById("messages");
+  chatbox.innerHTML = "";
+}
+
+function sendClearMap() {
+  document.getElementById("userInput").value = "clean map";
+  sendTask();
 }

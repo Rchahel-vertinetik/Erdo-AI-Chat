@@ -16,8 +16,12 @@
         placeholder="Type your message..."
         onkeypress="handleKeyPress(event)"
       />
-      <button onclick="sendTask()">Send</button>
-    </div>
+      <div class="button-palette">
+        <button onclick="sendTask()">Send</button>
+        <button onclick="clearChat()">🧹</button>
+        <button onclick="sendClearMap()">🗺️❌</button>
+      </div>
+    </div>    
   </div>
 
   <canvas id="chartCanvas"></canvas>

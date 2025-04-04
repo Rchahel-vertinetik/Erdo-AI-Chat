@@ -54,6 +54,28 @@ body {
   .input-area {
     display: flex;
     border-top: 1px solid #ccc;
+    align-items: center;
+  }
+  
+  .button-palette {
+    display: flex;
+    gap: 5px;
+  }
+  
+  .button-palette button {
+    padding: 10px 12px;
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  
+  .button-palette button:hover {
+    background-color: #0056b3;
   }
   
   #userInput {
@@ -62,8 +84,8 @@ body {
     border: none;
     outline: none;
     font-size: 14px;
-    border-radius: 0;
   }
+  
   
   button {
     padding: 15px 20px;
