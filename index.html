@@ -16,11 +16,16 @@
         placeholder="Type your message..."
         onkeypress="handleKeyPress(event)"
       />
-      <div class="button-palette">
-        <button onclick="sendTask()">Send</button>
-        <button onclick="clearChat()">🧹</button>
-        <button onclick="sendClearMap()">🗺️❌</button>
+    
+      <div class="dropdown">
+        <button class="dropbtn">⚙️ Actions</button>
+        <div class="dropdown-content">
+          <button onclick="sendTask()">➤ Send</button>
+          <button onclick="clearChat()">🧹 Clear Chat</button>
+          <button onclick="sendClearMap()">🗺️❌ Clear Map</button>
+        </div>
       </div>
+    </div>    
     </div>    
   </div>
 
