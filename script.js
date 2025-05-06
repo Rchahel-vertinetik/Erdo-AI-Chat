@@ -23,7 +23,7 @@ async function sendTask() {
   botMessageElement.appendChild(spinner);
 
   try {
-    const response = await fetch("https://llmgeo-406981047289.us-central1.run.app/process", {
+    const response = await fetch("https://llmgeo-1042524106019.us-central1.run.app/process", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
