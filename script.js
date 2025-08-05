@@ -46,7 +46,8 @@ async function sendTask() {
   const apiUrl = isDevMode()
     ? "https://llmgeo-dev-1042524106019.us-central1.run.app/process" //  dev endpoint
     : "https://llmgeo-1042524106019.us-central1.run.app/process"; //  production
-
+  console.log("Using API:", apiUrl);
+  console.log("Dev mode:", isDevMode());
   try {
     const response = await fetch(apiUrl, {
       method: "POST",
