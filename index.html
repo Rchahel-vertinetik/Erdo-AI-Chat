@@ -9,13 +9,13 @@
 <body>
   <div id="chatbox">
     <div class="input-area">
-      <input
-        type="text"
+      <textarea
         id="userInput"
         placeholder="Type your message..."
-        onkeypress="handleKeyPress(event)"
-      />
-  
+        onkeydown="handleKeyPress(event)"
+        rows="2"
+      ></textarea>
+
       <div class="split-button">
         <button onclick="sendTask()">Send</button>
         <div class="dropdown">
@@ -27,7 +27,7 @@
         </div>
       </div>
     </div>
-  
+
     <div id="messages"></div>
   </div>
   <canvas id="chartCanvas"></canvas>
