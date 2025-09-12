@@ -45,7 +45,18 @@ body {
   display: flex;
   position: relative;
 }
-
+    .disclaimer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      font-size: 0.8em;
+      color: #666;
+      background: #f8f8f8;
+      text-align: center;
+      padding: 6px 0;
+      border-top: 1px solid #ddd;
+    }
 .split-button > button {
   background-color: #007bff;
   color: white;
