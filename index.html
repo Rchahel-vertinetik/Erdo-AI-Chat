@@ -5,6 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Vertinetik AI Chatbot</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* Reserve space so the fixed footer doesn't overlap content */
+    body { margin: 0; padding-bottom: 44px; }
+
+    #disclaimer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      font-size: 0.8em;
+      color: #666;
+      background: #f8f8f8;
+      text-align: center;
+      padding: 8px 12px;
+      border-top: 1px solid #ddd;
+      z-index: 9999;
+    }
+
+    /* Optional: keep chatbox nicely spaced */
+    #chatbox { padding: 12px; }
+  </style>
 </head>
 <body>
   <div id="chatbox">
@@ -32,7 +53,12 @@
   </div>
 
   <canvas id="chartCanvas"></canvas>
-<div id="disclaimer" style="font-size: 0.8em; color: #666; margin-top: 10px; text-align: center;"> Some interactions may be logged to help us improve your experience. </div>
+
+  <!-- Sticky footer disclaimer -->
+  <div id="disclaimer">
+    Some interactions may be logged to help us improve your experience.
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
