@@ -45,7 +45,7 @@ body {
   display: flex;
   position: relative;
 }
-    .disclaimer {
+    #disclaimer {
       position: fixed;
       bottom: 0;
       left: 0;
