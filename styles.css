@@ -145,30 +145,46 @@ body {
   border-bottom-left-radius: 0;
 }
 
-/* 🔥 NEW — Suggestions Section */
+/* Suggestions section — now lightweight & subtle */
 #suggestions {
-  padding: 10px 12px;
-  display: none; /* hidden by default until JS populates it */
+  padding: 6px 10px;
+  display: none; 
   flex-wrap: wrap;
-  gap: 8px;
-  border-top: 1px solid #ddd;
-  background: #fafafa;
+  gap: 6px;
+  border-top: 1px solid #eee;
+  background: #fff;
+  font-size: 13px;
+  align-items: center;
 }
 
+/* Suggestion chips */
 .suggestion-chip {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 14px;
   background: #f0f2f5;
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s;
+  font-size: 13px;
 }
 
 .suggestion-chip:hover {
-  background: #e0e3e7;
-  border-color: #bbb;
+  background: #e6e8eb;
 }
+
+/* Hide-link */
+.suggestions-hide {
+  margin-left: auto;
+  cursor: pointer;
+  color: #777;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.suggestions-hide:hover {
+  color: #444;
+}
+
 
 /* Sticky footer disclaimer */
 #disclaimer {
