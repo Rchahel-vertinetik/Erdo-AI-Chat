@@ -44,8 +44,9 @@ async function sendTask() {
   botMessageElement.appendChild(spinner);
 
   const apiUrl = isDevMode()
-    ? "https://llmgeo-dev-1042524106019.us-central1.run.app/process" //  dev endpoint
-    : "https://llmgeo-1042524106019.us-central1.run.app/process"; //  production
+    ? "https://llmgeo-dev-1042524106019.us-central1.run.app/process" // dev endpoint
+    : "https://llmgeo-1042524106019.us-central1.run.app/process";   // production
+
   try {
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -59,11 +60,23 @@ async function sendTask() {
     });
 
     const data = await response.json();
-    const reply = data.message || JSON.stringify(data);
+
+    // Prefer `message`, then `response`, then raw JSON
+    const reply =
+      data.message ??
+      data.response ??
+      JSON.stringify(data);
+
     botMessageElement.innerText = reply;
+
+    // NEW: update suggestions if backend sent them
+    const suggestions = data.prompt_options || [];
+    updateSuggestions(suggestions);
+
   } catch (error) {
     console.error("Error:", error);
     botMessageElement.innerText = `Error: ${error.message}`;
+    updateSuggestions([]); // clear suggestions on error
   } finally {
     isProcessing = false;
     inputField.value = "";
@@ -85,9 +98,41 @@ function addMessage(message, sender) {
 function clearChat() {
   const chatbox = document.getElementById("messages");
   chatbox.innerHTML = "";
+  updateSuggestions([]); // also clear suggestion chips
 }
 
 function sendClearMap() {
   document.getElementById("userInput").value = "clean map";
   sendTask();
+}
+
+// NEW: render prompt suggestions as clickable chips
+function updateSuggestions(suggestions) {
+  const container = document.getElementById("suggestions");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (!Array.isArray(suggestions) || suggestions.length === 0) {
+    container.style.display = "none";
+    return;
+  }
+
+  container.style.display = "flex";
+
+  suggestions.forEach((text) => {
+    const btn = document.createElement("button");
+    btn.className = "suggestion-chip";
+    btn.innerText = text;
+
+    // On click, populate the input with this suggestion
+    btn.onclick = () => {
+      const input = document.getElementById("userInput");
+      if (!input) return;
+      input.value = text;
+      input.focus();
+    };
+
+    container.appendChild(btn);
+  });
 }
