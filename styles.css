@@ -152,14 +152,14 @@ body {
   flex-shrink: 0;
   padding: 4px 8px;
   border-top: 1px solid #eee;
-  background: #fff;
+  background: #007512;
 
   /* Horizontal strip, scroll on X, never tall */
   display: flex;
   align-items: center;
   gap: 6px;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   max-height: 40px;
   scrollbar-width: none;          /* Firefox */
 }
