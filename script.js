@@ -106,13 +106,13 @@ function sendClearMap() {
   sendTask();
 }
 
-// NEW: render prompt suggestions as clickable chips
 function updateSuggestions(suggestions) {
   const container = document.getElementById("suggestions");
   if (!container) return;
 
   container.innerHTML = "";
 
+  // No suggestions → hide immediately
   if (!Array.isArray(suggestions) || suggestions.length === 0) {
     container.style.display = "none";
     return;
@@ -121,18 +121,30 @@ function updateSuggestions(suggestions) {
   container.style.display = "flex";
 
   suggestions.forEach((text) => {
-    const btn = document.createElement("button");
-    btn.className = "suggestion-chip";
-    btn.innerText = text;
+    const chip = document.createElement("div");
+    chip.className = "suggestion-chip";
+    chip.innerText = text;
 
-    // On click, populate the input with this suggestion
-    btn.onclick = () => {
+    chip.onclick = () => {
       const input = document.getElementById("userInput");
       if (!input) return;
+
       input.value = text;
       input.focus();
+
+      // Auto hide when clicked
+      container.style.display = "none";
     };
 
-    container.appendChild(btn);
+    container.appendChild(chip);
   });
+
+  // Add a "hide" button on right
+  const hide = document.createElement("div");
+  hide.className = "suggestions-hide";
+  hide.innerText = "× Hide";
+  hide.onclick = () => container.style.display = "none";
+
+  container.appendChild(hide);
 }
+
