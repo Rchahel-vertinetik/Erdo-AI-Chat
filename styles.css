@@ -113,7 +113,7 @@ body {
 .dropdown-content button:hover { background-color: #f1f1f1; }
 .dropdown:hover .dropdown-content { display: flex; }
 
-/* Messages fill remaining space */
+/* Messages */
 #messages {
   flex: 1;
   padding: 15px;
@@ -143,6 +143,31 @@ body {
   color: black;
   align-self: flex-start;
   border-bottom-left-radius: 0;
+}
+
+/* 🔥 NEW — Suggestions Section */
+#suggestions {
+  padding: 10px 12px;
+  display: none; /* hidden by default until JS populates it */
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid #ddd;
+  background: #fafafa;
+}
+
+.suggestion-chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  background: #f0f2f5;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.suggestion-chip:hover {
+  background: #e0e3e7;
+  border-color: #bbb;
 }
 
 /* Sticky footer disclaimer */
@@ -176,7 +201,7 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-/* Hide any canvas that might appear */
+/* Hide stray canvas */
 canvas {
   display: none;
 }
