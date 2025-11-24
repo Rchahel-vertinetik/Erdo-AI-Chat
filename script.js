@@ -116,13 +116,11 @@ function updateSuggestions(suggestions) {
 
   container.innerHTML = "";
 
-  // No suggestions → hide immediately
   if (!Array.isArray(suggestions) || suggestions.length === 0) {
     container.style.display = "none";
     return;
   }
 
-  // Small horizontal row
   container.style.display = "flex";
 
   suggestions.forEach((text) => {
@@ -130,30 +128,22 @@ function updateSuggestions(suggestions) {
     chip.className = "suggestion-chip";
     chip.type = "button";
     chip.innerText = text;
-
     chip.onclick = () => {
       const input = document.getElementById("userInput");
       if (!input) return;
-
       input.value = text;
       input.focus();
-
-      // Auto hide all suggestions after click
       container.style.display = "none";
     };
-
     container.appendChild(chip);
   });
 
-  // Small "X" hide control on the right
   const hide = document.createElement("button");
   hide.className = "suggestions-hide";
   hide.type = "button";
   hide.innerText = "×";
   hide.title = "Hide suggestions";
-  hide.onclick = () => {
-    container.style.display = "none";
-  };
-
+  hide.onclick = () => { container.style.display = "none"; };
   container.appendChild(hide);
 }
+
