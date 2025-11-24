@@ -26,6 +26,9 @@ function isDevMode() {
 async function sendTask() {
   if (isProcessing) return;
 
+  // Hide any old suggestions when starting a new request
+  updateSuggestions([]);
+
   const inputField = document.getElementById("userInput");
   const userMessage = inputField.value.trim();
   if (!userMessage) return;
@@ -69,7 +72,7 @@ async function sendTask() {
 
     botMessageElement.innerText = reply;
 
-    // NEW: update suggestions if backend sent them
+    // Update suggestions if backend sent them
     const suggestions = data.prompt_options || [];
     updateSuggestions(suggestions);
 
@@ -106,6 +109,7 @@ function sendClearMap() {
   sendTask();
 }
 
+// Compact suggestions with hide control
 function updateSuggestions(suggestions) {
   const container = document.getElementById("suggestions");
   if (!container) return;
@@ -118,11 +122,13 @@ function updateSuggestions(suggestions) {
     return;
   }
 
+  // Small horizontal row
   container.style.display = "flex";
 
   suggestions.forEach((text) => {
-    const chip = document.createElement("div");
+    const chip = document.createElement("button");
     chip.className = "suggestion-chip";
+    chip.type = "button";
     chip.innerText = text;
 
     chip.onclick = () => {
@@ -132,19 +138,22 @@ function updateSuggestions(suggestions) {
       input.value = text;
       input.focus();
 
-      // Auto hide when clicked
+      // Auto hide all suggestions after click
       container.style.display = "none";
     };
 
     container.appendChild(chip);
   });
 
-  // Add a "hide" button on right
-  const hide = document.createElement("div");
+  // Small "X" hide control on the right
+  const hide = document.createElement("button");
   hide.className = "suggestions-hide";
-  hide.innerText = "× Hide";
-  hide.onclick = () => container.style.display = "none";
+  hide.type = "button";
+  hide.innerText = "×";
+  hide.title = "Hide suggestions";
+  hide.onclick = () => {
+    container.style.display = "none";
+  };
 
   container.appendChild(hide);
 }
-
