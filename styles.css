@@ -113,7 +113,7 @@ body {
 .dropdown-content button:hover { background-color: #f1f1f1; }
 .dropdown:hover .dropdown-content { display: flex; }
 
-/* Messages */
+/* Messages fill remaining space */
 #messages {
   flex: 1;
   padding: 15px;
@@ -144,42 +144,6 @@ body {
   align-self: flex-start;
   border-bottom-left-radius: 0;
 }
-
-/* Suggestions section — compact & subtle */
-/* Suggestions section — pinned just above messages’ bottom edge */
-#suggestions {
-  display: none;
-  flex-shrink: 0;
-  padding: 4px 8px;
-  border-top: 1px solid #eee;
-  background: #007512;
-
-  /* Horizontal strip, scroll on X, never tall */
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow-x: auto;
-  overflow-y: auto;
-  max-height: 40px;
-  scrollbar-width: none;          /* Firefox */
-}
-#suggestions::-webkit-scrollbar {
-  display: none;                  /* WebKit */
-}
-
-/* Chips can be a bit smaller to feel “inline” with the input */
-.suggestion-chip {
-  padding: 4px 8px;
-  font-size: 12px;
-  max-width: 140px;
-}
-
-/* Keep the hide button visually separate at the right edge */
-.suggestions-hide {
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
 
 /* Sticky footer disclaimer */
 #disclaimer {
@@ -212,7 +176,7 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-/* Hide stray canvas */
+/* Hide any canvas that might appear */
 canvas {
   display: none;
 }
