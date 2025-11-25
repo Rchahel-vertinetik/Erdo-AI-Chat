@@ -1,10 +1,10 @@
 let isProcessing = false;
 
 const INITIAL_SUGGESTIONS = [
-  "Show me diseased ash trees",
-  "Show me level 2 ash trees",
-  "Show me the tallest ash tree",
-  "What is the tallest ash tree",
+  "Show me diseased ash trees?",
+  "Show me level 2 ash trees?",
+  "Show me the tallest ash tree?",
+  "What is the tallest ash tree?",
   "How many ash trees are there?"
 ];
 
