@@ -26,9 +26,6 @@ function isDevMode() {
 async function sendTask() {
   if (isProcessing) return;
 
-  // Hide any old suggestions when starting a new request
-  updateSuggestions([]);
-
   const inputField = document.getElementById("userInput");
   const userMessage = inputField.value.trim();
   if (!userMessage) return;
@@ -47,9 +44,8 @@ async function sendTask() {
   botMessageElement.appendChild(spinner);
 
   const apiUrl = isDevMode()
-    ? "https://llmgeo-dev-1042524106019.us-central1.run.app/process" // dev endpoint
-    : "https://llmgeo-1042524106019.us-central1.run.app/process";   // production
-
+    ? "https://llmgeo-dev-1042524106019.us-central1.run.app/process" //  dev endpoint
+    : "https://llmgeo-1042524106019.us-central1.run.app/process"; //  production
   try {
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -63,23 +59,11 @@ async function sendTask() {
     });
 
     const data = await response.json();
-
-    // Prefer `message`, then `response`, then raw JSON
-    const reply =
-      data.message ??
-      data.response ??
-      JSON.stringify(data);
-
+    const reply = data.message || JSON.stringify(data);
     botMessageElement.innerText = reply;
-
-    // Update suggestions if backend sent them
-    const suggestions = data.prompt_options || [];
-    updateSuggestions(suggestions);
-
   } catch (error) {
     console.error("Error:", error);
     botMessageElement.innerText = `Error: ${error.message}`;
-    updateSuggestions([]); // clear suggestions on error
   } finally {
     isProcessing = false;
     inputField.value = "";
@@ -101,49 +85,9 @@ function addMessage(message, sender) {
 function clearChat() {
   const chatbox = document.getElementById("messages");
   chatbox.innerHTML = "";
-  updateSuggestions([]); // also clear suggestion chips
 }
 
 function sendClearMap() {
   document.getElementById("userInput").value = "clean map";
   sendTask();
 }
-
-// Compact suggestions with hide control
-function updateSuggestions(suggestions) {
-  const container = document.getElementById("suggestions");
-  if (!container) return;
-
-  container.innerHTML = "";
-
-  if (!Array.isArray(suggestions) || suggestions.length === 0) {
-    container.style.display = "none";
-    return;
-  }
-
-  container.style.display = "flex";
-
-  suggestions.forEach((text) => {
-    const chip = document.createElement("button");
-    chip.className = "suggestion-chip";
-    chip.type = "button";
-    chip.innerText = text;
-    chip.onclick = () => {
-      const input = document.getElementById("userInput");
-      if (!input) return;
-      input.value = text;
-      input.focus();
-      container.style.display = "none";
-    };
-    container.appendChild(chip);
-  });
-
-  const hide = document.createElement("button");
-  hide.className = "suggestions-hide";
-  hide.type = "button";
-  hide.innerText = "×";
-  hide.title = "Hide suggestions";
-  hide.onclick = () => { container.style.display = "none"; };
-  container.appendChild(hide);
-}
-
