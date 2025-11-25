@@ -26,9 +26,6 @@ function isDevMode() {
 async function sendTask() {
   if (isProcessing) return;
 
-  // Hide any old suggestions when starting a new request
-  updateSuggestions([]);
-
   const inputField = document.getElementById("userInput");
   const userMessage = inputField.value.trim();
   if (!userMessage) return;
@@ -72,7 +69,7 @@ async function sendTask() {
 
     botMessageElement.innerText = reply;
 
-    // Update suggestions if backend sent them
+    // NEW: update suggestions if backend sent them
     const suggestions = data.prompt_options || [];
     updateSuggestions(suggestions);
 
@@ -109,13 +106,13 @@ function sendClearMap() {
   sendTask();
 }
 
-// Compact suggestions with hide control
 function updateSuggestions(suggestions) {
   const container = document.getElementById("suggestions");
   if (!container) return;
 
   container.innerHTML = "";
 
+  // No suggestions → hide immediately
   if (!Array.isArray(suggestions) || suggestions.length === 0) {
     container.style.display = "none";
     return;
@@ -124,26 +121,29 @@ function updateSuggestions(suggestions) {
   container.style.display = "flex";
 
   suggestions.forEach((text) => {
-    const chip = document.createElement("button");
+    const chip = document.createElement("div");
     chip.className = "suggestion-chip";
-    chip.type = "button";
     chip.innerText = text;
+
     chip.onclick = () => {
       const input = document.getElementById("userInput");
       if (!input) return;
+
       input.value = text;
       input.focus();
+
+      // Auto hide when clicked
       container.style.display = "none";
     };
+
     container.appendChild(chip);
   });
 
-  const hide = document.createElement("button");
+  // Add a "hide" button on right
+  const hide = document.createElement("div");
   hide.className = "suggestions-hide";
-  hide.type = "button";
-  hide.innerText = "×";
-  hide.title = "Hide suggestions";
-  hide.onclick = () => { container.style.display = "none"; };
+  hide.innerText = "× Hide";
+  hide.onclick = () => container.style.display = "none";
+
   container.appendChild(hide);
 }
-
