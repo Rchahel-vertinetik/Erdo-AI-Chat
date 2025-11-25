@@ -1,8 +1,19 @@
 let isProcessing = false;
 
+const INITIAL_SUGGESTIONS = [
+  "Show me diseased ash trees",
+  "Show me level 2 ash trees",
+  "Show me the tallest ash tree",
+  "What is the tallest ash tree",
+  "How many ash trees are there?"
+];
+
 window.onload = () => {
   const input = document.getElementById("userInput");
   if (input) input.focus();
+
+  // Show your custom initial suggestions on load
+  updateSuggestions(INITIAL_SUGGESTIONS);
 };
 
 function handleKeyPress(event) {
@@ -69,7 +80,7 @@ async function sendTask() {
 
     botMessageElement.innerText = reply;
 
-    // NEW: update suggestions if backend sent them
+    // ✅ Backend-sent suggestions will replace the initial ones
     const suggestions = data.prompt_options || [];
     updateSuggestions(suggestions);
 
@@ -98,7 +109,8 @@ function addMessage(message, sender) {
 function clearChat() {
   const chatbox = document.getElementById("messages");
   chatbox.innerHTML = "";
-  updateSuggestions([]); // also clear suggestion chips
+  // ✅ Restore initial suggestions when chat is cleared
+  updateSuggestions(INITIAL_SUGGESTIONS);
 }
 
 function sendClearMap() {

@@ -145,39 +145,44 @@ body {
   border-bottom-left-radius: 0;
 }
 
-/* Suggestions section — compact & subtle */
-/* Suggestions section — pinned just above messages’ bottom edge */
+/* Suggestions section — now lightweight & subtle */
 #suggestions {
-  display: none;
-  flex-shrink: 0;
-  padding: 4px 8px;
-  border-top: 1px solid #eee;
-  background: #007512;
-
-  /* Horizontal strip, scroll on X, never tall */
-  display: flex;
-  align-items: center;
+  padding: 6px 10px;
+  display: none; 
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
-  overflow-y: auto;
-  max-height: 40px;
-  scrollbar-width: none;          /* Firefox */
-}
-#suggestions::-webkit-scrollbar {
-  display: none;                  /* WebKit */
+  border-top: 1px solid #eee;
+  background: #fff;
+  font-size: 13px;
+  align-items: center;
 }
 
-/* Chips can be a bit smaller to feel “inline” with the input */
+/* Suggestion chips */
 .suggestion-chip {
-  padding: 4px 8px;
-  font-size: 12px;
-  max-width: 140px;
+  padding: 5px 10px;
+  border-radius: 14px;
+  background: #f0f2f5;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 13px;
 }
 
-/* Keep the hide button visually separate at the right edge */
+.suggestion-chip:hover {
+  background: #e6e8eb;
+}
+
+/* Hide-link */
 .suggestions-hide {
   margin-left: auto;
-  flex-shrink: 0;
+  cursor: pointer;
+  color: #777;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.suggestions-hide:hover {
+  color: #444;
 }
 
 
