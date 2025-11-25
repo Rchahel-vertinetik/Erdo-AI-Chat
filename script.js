@@ -1,20 +1,46 @@
 let isProcessing = false;
 
 const INITIAL_SUGGESTIONS = [
-  "Show me diseased ash trees?",
-  "Show me level 2 ash trees?",
-  "Show me the tallest ash tree?",
-  "What is the tallest ash tree?",
-  "How many ash trees are there?"
+  "Show me diseased trees?",
+  "List all species of trees?",
+  "Show me the tallest tree?",
+  "How many trees are there?"
 ];
+
+// Track whether suggestions should be visible
+let suggestionsVisible = true;
 
 window.onload = () => {
   const input = document.getElementById("userInput");
   if (input) input.focus();
 
+  // Wire up the Show/Hide suggestions icon
+  const toggleBtn = document.getElementById("toggleSuggestions");
+  if (toggleBtn) {
+    toggleBtn.onclick = () => {
+      suggestionsVisible = !suggestionsVisible;
+      if (suggestionsVisible) {
+        updateSuggestions(INITIAL_SUGGESTIONS);
+      } else {
+        updateSuggestions([]);
+      }
+      syncToggleButton();
+    };
+
+    // Initial label
+    syncToggleButton();
+  }
+
   // Show your custom initial suggestions on load
   updateSuggestions(INITIAL_SUGGESTIONS);
 };
+
+function syncToggleButton() {
+  const toggleBtn = document.getElementById("toggleSuggestions");
+  if (!toggleBtn) return;
+  // 👇 Icon-style labels
+  toggleBtn.innerText = suggestionsVisible ? "× Hide" : "＋ Show";
+}
 
 function handleKeyPress(event) {
   // Allow Shift+Enter for newlines, Enter alone triggers send
@@ -80,9 +106,16 @@ async function sendTask() {
 
     botMessageElement.innerText = reply;
 
-    // ✅ Backend-sent suggestions will replace the initial ones
+    // Backend-sent suggestions will replace the current ones (if any)
     const suggestions = data.prompt_options || [];
-    updateSuggestions(suggestions);
+    if (suggestions.length > 0) {
+      suggestionsVisible = true;
+      updateSuggestions(suggestions);
+    } else if (!suggestionsVisible) {
+      // If user has hidden suggestions, keep them hidden
+      updateSuggestions([]);
+    }
+    syncToggleButton();
 
   } catch (error) {
     console.error("Error:", error);
@@ -109,8 +142,11 @@ function addMessage(message, sender) {
 function clearChat() {
   const chatbox = document.getElementById("messages");
   chatbox.innerHTML = "";
-  // ✅ Restore initial suggestions when chat is cleared
+
+  // Restore initial suggestions when chat is cleared
+  suggestionsVisible = true;
   updateSuggestions(INITIAL_SUGGESTIONS);
+  syncToggleButton();
 }
 
 function sendClearMap() {
@@ -143,19 +179,21 @@ function updateSuggestions(suggestions) {
 
       input.value = text;
       input.focus();
-
-      // Auto hide when clicked
-      container.style.display = "none";
+      // Keep suggestions visible; user can hide with the icon
     };
 
     container.appendChild(chip);
   });
 
-  // Add a "hide" button on right
+  // Add a "hide" button on right inside the suggestions bar (optional)
   const hide = document.createElement("div");
   hide.className = "suggestions-hide";
   hide.innerText = "× Hide";
-  hide.onclick = () => container.style.display = "none";
+  hide.onclick = () => {
+    suggestionsVisible = false;
+    updateSuggestions([]);
+    syncToggleButton();
+  };
 
   container.appendChild(hide);
 }

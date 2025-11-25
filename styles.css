@@ -145,6 +145,27 @@ body {
   border-bottom-left-radius: 0;
 }
 
+/* Toolbar row for Show/Hide icon */
+.suggestions-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 10px 0;
+  font-size: 12px;
+}
+
+/* Icon-style toggle: shows "× Hide" or "＋ Show" */
+.suggestions-toggle-icon {
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: opacity 0.2s, background 0.2s;
+}
+.suggestions-toggle-icon:hover {
+  opacity: 1;
+  background: #e6e6e6;
+}
+
 /* Suggestions section — now lightweight & subtle */
 #suggestions {
   padding: 6px 10px;
@@ -172,7 +193,7 @@ body {
   background: #e6e8eb;
 }
 
-/* Hide-link */
+/* Hide-link (inside the suggestions row, optional) */
 .suggestions-hide {
   margin-left: auto;
   cursor: pointer;
@@ -184,7 +205,6 @@ body {
 .suggestions-hide:hover {
   color: #444;
 }
-
 
 /* Sticky footer disclaimer */
 #disclaimer {
