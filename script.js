@@ -7,28 +7,26 @@ const INITIAL_SUGGESTIONS = [
   "How many trees are there?"
 ];
 
-// Track whether suggestions should be visible
 let suggestionsVisible = true;
 
-// ---------------- Streaming helpers ----------------
+// ---------------- Helpers ----------------
 function safeJsonParse(line) {
   try { return JSON.parse(line); } catch { return null; }
 }
 
-function appendBotText(el, text) {
-  el.textContent += text;
+function setBotText(el, text) {
+  el.textContent = text ?? "";
   const chatbox = document.getElementById("messages");
   if (chatbox) chatbox.scrollTop = chatbox.scrollHeight;
 }
 
-function setBotText(el, text) {
-  el.textContent = text;
+function appendBotText(el, text) {
+  el.textContent += text ?? "";
   const chatbox = document.getElementById("messages");
   if (chatbox) chatbox.scrollTop = chatbox.scrollHeight;
 }
 
 function ensureLogPanel(botMessageElement) {
-  // Small log/progress area inside the bot message bubble (only shows if progress arrives)
   let panel = botMessageElement.querySelector(".bot-log-panel");
   if (!panel) {
     panel = document.createElement("div");
@@ -41,7 +39,7 @@ function ensureLogPanel(botMessageElement) {
     panel.style.fontSize = "12px";
     panel.style.lineHeight = "1.35";
     panel.style.whiteSpace = "pre-wrap";
-    panel.style.display = "none"; // hidden until needed
+    panel.style.display = "none";
     botMessageElement.appendChild(panel);
   }
   return panel;
@@ -54,9 +52,43 @@ function showLog(panel) {
 function appendLog(panel, line) {
   if (!panel) return;
   showLog(panel);
-  panel.textContent += (panel.textContent ? "\n" : "") + line;
+  panel.textContent += (panel.textContent ? "\n" : "") + String(line);
   const chatbox = document.getElementById("messages");
   if (chatbox) chatbox.scrollTop = chatbox.scrollHeight;
+}
+
+// Extract a user-friendly reply from any backend payload without dumping JSON
+function extractReply(payload) {
+  if (!payload) return "";
+
+  // Most common
+  if (typeof payload.message === "string" && payload.message.trim()) return payload.message.trim();
+  if (typeof payload.response === "string" && payload.response.trim()) return payload.response.trim();
+
+  // Some backends nest in result
+  const r = payload.result;
+  if (r && typeof r.message === "string" && r.message.trim()) return r.message.trim();
+  if (r && typeof r.response === "string" && r.response.trim()) return r.response.trim();
+
+  // Fallback for odd shapes: do NOT show JSON
+  return "Done.";
+}
+
+function applySuggestionsFrom(payload) {
+  const suggestions = payload?.prompt_options || [];
+  if (Array.isArray(suggestions) && suggestions.length > 0) {
+    suggestionsVisible = true;
+    updateSuggestions(suggestions);
+  } else if (!suggestionsVisible) {
+    updateSuggestions([]);
+  }
+  syncToggleButton();
+}
+
+function renderBotResult(botMessageElement, payload) {
+  const reply = extractReply(payload);
+  setBotText(botMessageElement, reply);
+  applySuggestionsFrom(payload);
 }
 
 // ---------------- UI init ----------------
@@ -107,7 +139,6 @@ function getApiUrl() {
 }
 
 function apiBaseFromProcessUrl(processUrl) {
-  // "https://.../process" -> "https://..."
   return processUrl.replace(/\/process$/, "");
 }
 
@@ -121,7 +152,6 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
 
   const logPanel = ensureLogPanel(botMessageElement);
 
-  // If there's no streaming body, just return normal JSON
   if (!response.body || !response.body.getReader) {
     const data = await response.json();
     return { finalJson: data };
@@ -132,7 +162,7 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
   let buffer = "";
   let finalJson = null;
 
-  // Reset bot text, keep spinner
+  // Reset bot text but keep spinner
   setBotText(botMessageElement, "");
   if (spinner && !spinner.parentNode) botMessageElement.appendChild(spinner);
 
@@ -171,21 +201,18 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
         if (isFinal) {
           finalJson = obj;
         } else if (isLog) {
-          const msg = obj.message ?? obj.detail ?? obj.text ?? JSON.stringify(obj);
-          appendLog(logPanel, String(msg));
-        } else {
-          // unknown -> show quietly in panel
-          appendLog(logPanel, JSON.stringify(obj));
+          const msg = obj.message ?? obj.detail ?? obj.text ?? "";
+          if (msg) appendLog(logPanel, msg);
         }
       }
     } else {
-      // Plain text streaming -> show directly
+      // Plain text stream
       appendBotText(botMessageElement, buffer);
       buffer = "";
     }
   }
 
-  // Flush tail
+  // Tail flush
   const tail = buffer.trim();
   if (tail && isNdjson) {
     const obj = safeJsonParse(tail);
@@ -195,21 +222,19 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
     appendBotText(botMessageElement, tail);
   }
 
-  // Remove spinner if present
   if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
 
-  // If we didn't get a finalJson, backend may have sent plain text or ended early
   return { finalJson };
 }
 
 // ---------------- Queue polling ----------------
 async function pollJobStatusByUrl(pollPath, apiProcessUrl, botMessageElement, spinner) {
   const base = apiBaseFromProcessUrl(apiProcessUrl);
-  const statusUrl = base + pollPath; // pollPath starts with "/status/..."
+  const statusUrl = base + pollPath;
 
   const logPanel = ensureLogPanel(botMessageElement);
 
-  const maxMs = 1000 * 60 * 15; // 15 minutes
+  const maxMs = 1000 * 60 * 15;
   const start = Date.now();
   let lastStatus = "";
 
@@ -231,35 +256,18 @@ async function pollJobStatusByUrl(pollPath, apiProcessUrl, botMessageElement, sp
     }
 
     const status = (data.status || "").toLowerCase();
-    const message = data.message || "";
 
     if (status && status !== lastStatus) {
       lastStatus = status;
       appendLog(logPanel, `Status: ${status}`);
     }
 
-    // Only append message if it changes or exists; simple approach:
-    if (message) appendLog(logPanel, message);
+    // optional job message (kept in log panel, not main chat)
+    if (data.message) appendLog(logPanel, data.message);
 
     if (status === "completed") {
       if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
-
-      const reply =
-        (data.result && (data.result.message || data.result.response)) ||
-        data.message ||
-        data.response ||
-        "Completed.";
-
-      setBotText(botMessageElement, reply);
-
-      const suggestions = data.prompt_options || [];
-      if (suggestions.length > 0) {
-        suggestionsVisible = true;
-        updateSuggestions(suggestions);
-      } else if (!suggestionsVisible) {
-        updateSuggestions([]);
-      }
-      syncToggleButton();
+      renderBotResult(botMessageElement, data);
       return;
     }
 
@@ -309,7 +317,7 @@ async function sendTask() {
       let errText = `HTTP ${response.status}`;
       try {
         const maybeJson = await response.json();
-        errText = maybeJson.detail || maybeJson.message || JSON.stringify(maybeJson);
+        errText = maybeJson.detail || maybeJson.message || errText;
       } catch {
         try { errText = await response.text(); } catch {}
       }
@@ -319,56 +327,36 @@ async function sendTask() {
       return;
     }
 
-    // Read response (stream or json)
     const { finalJson } = await readStreamedResponse(response, botMessageElement, spinner);
 
-    // If backend returned a JSON (including queued)
+    // If backend returned structured JSON
     if (finalJson) {
       const status = (finalJson.status || "").toLowerCase();
 
-      // If queued -> poll using backend-provided poll path if present
       if (status === "queued") {
-        const pollPath = finalJson.poll; // e.g. "/status/<job_id>"
+        const pollPath = finalJson.poll || (finalJson.job_id ? `/status/${encodeURIComponent(finalJson.job_id)}` : null);
+
+        // Do NOT show raw JSON; show a friendly queued message
+        setBotText(botMessageElement, finalJson.message || "Queued. Working on it...");
+
         if (pollPath) {
-          // Keep spinner while polling
           if (!spinner.parentNode) botMessageElement.appendChild(spinner);
           await pollJobStatusByUrl(pollPath, apiUrl, botMessageElement, spinner);
-          return;
+        } else {
+          if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
+          appendBotText(botMessageElement, "\n(Queued but missing poll link.)");
         }
 
-        // Fallback: if poll missing but job_id present, build it
-        if (finalJson.job_id) {
-          if (!spinner.parentNode) botMessageElement.appendChild(spinner);
-          await pollJobStatusByUrl(`/status/${encodeURIComponent(finalJson.job_id)}`, apiUrl, botMessageElement, spinner);
-          return;
-        }
-
-        // If missing both, show something
-        setBotText(botMessageElement, finalJson.message || "Queued.");
+        applySuggestionsFrom(finalJson);
         return;
       }
 
-      // Completed / normal response
-      const reply =
-        finalJson.message ??
-        finalJson.response ??
-        (finalJson.result && (finalJson.result.message || finalJson.result.response)) ??
-        JSON.stringify(finalJson);
-
-      setBotText(botMessageElement, reply);
-
-      const suggestions = finalJson.prompt_options || [];
-      if (suggestions.length > 0) {
-        suggestionsVisible = true;
-        updateSuggestions(suggestions);
-      } else if (!suggestionsVisible) {
-        updateSuggestions([]);
-      }
-      syncToggleButton();
+      // Completed inline / normal
+      renderBotResult(botMessageElement, finalJson);
       return;
     }
 
-    // If no finalJson, then stream may have already written plain text to bot bubble.
+    // If it was plain text streaming, we already displayed it in the bubble.
 
   } catch (error) {
     console.error("Error:", error);
