@@ -10,13 +10,12 @@ const INITIAL_SUGGESTIONS = [
 // Track whether suggestions should be visible
 let suggestionsVisible = true;
 
-// --- Streaming helpers ---
+// ---------------- Streaming helpers ----------------
 function safeJsonParse(line) {
   try { return JSON.parse(line); } catch { return null; }
 }
 
 function appendBotText(el, text) {
-  // Keep it safe + simple
   el.textContent += text;
   const chatbox = document.getElementById("messages");
   if (chatbox) chatbox.scrollTop = chatbox.scrollHeight;
@@ -29,7 +28,7 @@ function setBotText(el, text) {
 }
 
 function ensureLogPanel(botMessageElement) {
-  // Optional: show a small log area inside the bot message for progress updates
+  // Small log/progress area inside the bot message bubble (only shows if progress arrives)
   let panel = botMessageElement.querySelector(".bot-log-panel");
   if (!panel) {
     panel = document.createElement("div");
@@ -42,7 +41,7 @@ function ensureLogPanel(botMessageElement) {
     panel.style.fontSize = "12px";
     panel.style.lineHeight = "1.35";
     panel.style.whiteSpace = "pre-wrap";
-    panel.style.display = "none"; // hidden until we get logs
+    panel.style.display = "none"; // hidden until needed
     botMessageElement.appendChild(panel);
   }
   return panel;
@@ -60,23 +59,18 @@ function appendLog(panel, line) {
   if (chatbox) chatbox.scrollTop = chatbox.scrollHeight;
 }
 
+// ---------------- UI init ----------------
 window.onload = () => {
   const input = document.getElementById("userInput");
   if (input) input.focus();
 
-  // Wire up the Show/Hide suggestions icon
   const toggleBtn = document.getElementById("toggleSuggestions");
   if (toggleBtn) {
     toggleBtn.onclick = () => {
       suggestionsVisible = !suggestionsVisible;
-      if (suggestionsVisible) {
-        updateSuggestions(INITIAL_SUGGESTIONS);
-      } else {
-        updateSuggestions([]);
-      }
+      updateSuggestions(suggestionsVisible ? INITIAL_SUGGESTIONS : []);
       syncToggleButton();
     };
-
     syncToggleButton();
   }
 
@@ -112,52 +106,45 @@ function getApiUrl() {
     : "https://llmgeo-1042524106019.us-central1.run.app/process";
 }
 
-/**
- * Reads NDJSON from a fetch Response body and returns:
- * - finalJson: last JSON object that contains final "message"/"response" etc.
- * - logs: array of log/progress lines (if any)
- *
- * Expected streaming formats supported:
- *  1) NDJSON: {"type":"log","message":"..."}\n {"type":"final", ...}\n
- *  2) NDJSON: {"status":"progress","message":"..."}\n {"status":"completed", ...}\n
- *  3) Plain text stream (fallback): just append as text
- */
+function apiBaseFromProcessUrl(processUrl) {
+  // "https://.../process" -> "https://..."
+  return processUrl.replace(/\/process$/, "");
+}
+
+// ---------------- Stream reader ----------------
 async function readStreamedResponse(response, botMessageElement, spinner) {
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
   const isNdjson =
     contentType.includes("application/x-ndjson") ||
     contentType.includes("application/ndjson") ||
-    contentType.includes("text/event-stream"); // some APIs misuse SSE for NDJSON-ish
+    contentType.includes("text/event-stream");
 
   const logPanel = ensureLogPanel(botMessageElement);
 
-  // If there's no stream, just parse json normally
+  // If there's no streaming body, just return normal JSON
   if (!response.body || !response.body.getReader) {
     const data = await response.json();
-    return { finalJson: data, logs: [] };
+    return { finalJson: data };
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
   let finalJson = null;
-  let gotAnyChunk = false;
 
-  // Make sure bot bubble starts empty text (spinner still visible)
+  // Reset bot text, keep spinner
   setBotText(botMessageElement, "");
-  if (spinner) botMessageElement.appendChild(spinner);
+  if (spinner && !spinner.parentNode) botMessageElement.appendChild(spinner);
 
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
 
-    gotAnyChunk = true;
     buffer += decoder.decode(value, { stream: true });
 
-    // NDJSON-style: split on newlines
     if (isNdjson) {
-      let lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() || ""; // keep incomplete tail
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || "";
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -165,14 +152,11 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
 
         const obj = safeJsonParse(trimmed);
         if (!obj) {
-          // Not JSON; treat as log text
           appendLog(logPanel, trimmed);
           continue;
         }
 
-        // --- Heuristics to classify events ---
         const type = (obj.type || obj.status || obj.event || "").toString().toLowerCase();
-
         const isFinal =
           type === "final" ||
           type === "completed" ||
@@ -182,36 +166,26 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
         const isLog =
           type === "log" ||
           type === "progress" ||
-          obj.status === "progress" ||
-          obj.message && !isFinal;
+          obj.status === "progress";
 
         if (isFinal) {
           finalJson = obj;
-          // Don't spam the user with raw JSON. We'll render final message below.
         } else if (isLog) {
-          // Prefer message-ish fields
-          const msg =
-            obj.message ??
-            obj.detail ??
-            obj.text ??
-            JSON.stringify(obj);
-
+          const msg = obj.message ?? obj.detail ?? obj.text ?? JSON.stringify(obj);
           appendLog(logPanel, String(msg));
         } else {
-          // Unknown event: log it quietly in panel
+          // unknown -> show quietly in panel
           appendLog(logPanel, JSON.stringify(obj));
         }
       }
     } else {
-      // Non-NDJSON: stream plain text to chat bubble
-      // (You said you want stream + logs; if server doesn't send NDJSON,
-      // we show the stream as the main bot text)
+      // Plain text streaming -> show directly
       appendBotText(botMessageElement, buffer);
       buffer = "";
     }
   }
 
-  // Flush any remaining buffer
+  // Flush tail
   const tail = buffer.trim();
   if (tail && isNdjson) {
     const obj = safeJsonParse(tail);
@@ -224,22 +198,18 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
   // Remove spinner if present
   if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
 
-  // If we never got any chunks but response is ok, fallback to json
-  if (!gotAnyChunk) {
-    const data = await response.json();
-    return { finalJson: data, logs: [] };
-  }
-
-  return { finalJson, logs: [] };
+  // If we didn't get a finalJson, backend may have sent plain text or ended early
+  return { finalJson };
 }
 
-async function pollJobStatus(jobId, apiBaseUrl, botMessageElement, spinner) {
-  // Poll /status/{job_id} until completed/failed.
-  // This is only used if backend returns {status:"queued", job_id:...}
-  const statusUrl = apiBaseUrl.replace(/\/process$/, "") + `/status/${encodeURIComponent(jobId)}`;
+// ---------------- Queue polling ----------------
+async function pollJobStatusByUrl(pollPath, apiProcessUrl, botMessageElement, spinner) {
+  const base = apiBaseFromProcessUrl(apiProcessUrl);
+  const statusUrl = base + pollPath; // pollPath starts with "/status/..."
+
   const logPanel = ensureLogPanel(botMessageElement);
 
-  const maxMs = 1000 * 60 * 15; // 15 min safeguard
+  const maxMs = 1000 * 60 * 15; // 15 minutes
   const start = Date.now();
   let lastStatus = "";
 
@@ -263,11 +233,12 @@ async function pollJobStatus(jobId, apiBaseUrl, botMessageElement, spinner) {
     const status = (data.status || "").toLowerCase();
     const message = data.message || "";
 
-    // Update log panel with status changes (quiet, not spammy)
     if (status && status !== lastStatus) {
       lastStatus = status;
       appendLog(logPanel, `Status: ${status}`);
     }
+
+    // Only append message if it changes or exists; simple approach:
     if (message) appendLog(logPanel, message);
 
     if (status === "completed") {
@@ -281,7 +252,6 @@ async function pollJobStatus(jobId, apiBaseUrl, botMessageElement, spinner) {
 
       setBotText(botMessageElement, reply);
 
-      // Suggestions (if any)
       const suggestions = data.prompt_options || [];
       if (suggestions.length > 0) {
         suggestionsVisible = true;
@@ -295,22 +265,17 @@ async function pollJobStatus(jobId, apiBaseUrl, botMessageElement, spinner) {
 
     if (status === "failed") {
       if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
-
-      const err =
-        data.error ||
-        data.message ||
-        "Job failed.";
-
+      const err = data.error || data.message || "Job failed.";
       setBotText(botMessageElement, `Error: ${err}`);
       updateSuggestions([]);
       return;
     }
 
-    // wait before next poll
     await new Promise((res) => setTimeout(res, 1200));
   }
 }
 
+// ---------------- Main sendTask ----------------
 async function sendTask() {
   if (isProcessing) return;
 
@@ -337,11 +302,9 @@ async function sendTask() {
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // Important: if backend supports streaming NDJSON, it should return that content-type
       body: JSON.stringify({ task: userMessage, task_name: taskName })
     });
 
-    // If backend returns error code, try to parse body for message
     if (!response.ok) {
       let errText = `HTTP ${response.status}`;
       try {
@@ -351,24 +314,41 @@ async function sendTask() {
         try { errText = await response.text(); } catch {}
       }
       if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
-      botMessageElement.innerText = `Error: ${errText}`;
+      setBotText(botMessageElement, `Error: ${errText}`);
       updateSuggestions([]);
       return;
     }
 
-    // --- STREAMING READ (if response is streamed) ---
+    // Read response (stream or json)
     const { finalJson } = await readStreamedResponse(response, botMessageElement, spinner);
 
-    // If we got a final JSON object, render it nicely (don’t show raw JSON)
+    // If backend returned a JSON (including queued)
     if (finalJson) {
-      // If backend indicates queued, poll status
-      if ((finalJson.status || "").toLowerCase() === "queued" && finalJson.job_id) {
-        // Keep spinner while polling
-        if (!spinner.parentNode) botMessageElement.appendChild(spinner);
-        await pollJobStatus(finalJson.job_id, apiUrl, botMessageElement, spinner);
+      const status = (finalJson.status || "").toLowerCase();
+
+      // If queued -> poll using backend-provided poll path if present
+      if (status === "queued") {
+        const pollPath = finalJson.poll; // e.g. "/status/<job_id>"
+        if (pollPath) {
+          // Keep spinner while polling
+          if (!spinner.parentNode) botMessageElement.appendChild(spinner);
+          await pollJobStatusByUrl(pollPath, apiUrl, botMessageElement, spinner);
+          return;
+        }
+
+        // Fallback: if poll missing but job_id present, build it
+        if (finalJson.job_id) {
+          if (!spinner.parentNode) botMessageElement.appendChild(spinner);
+          await pollJobStatusByUrl(`/status/${encodeURIComponent(finalJson.job_id)}`, apiUrl, botMessageElement, spinner);
+          return;
+        }
+
+        // If missing both, show something
+        setBotText(botMessageElement, finalJson.message || "Queued.");
         return;
       }
 
+      // Completed / normal response
       const reply =
         finalJson.message ??
         finalJson.response ??
@@ -377,7 +357,6 @@ async function sendTask() {
 
       setBotText(botMessageElement, reply);
 
-      // Suggestions
       const suggestions = finalJson.prompt_options || [];
       if (suggestions.length > 0) {
         suggestionsVisible = true;
@@ -389,13 +368,12 @@ async function sendTask() {
       return;
     }
 
-    // If we streamed plain text (non-NDJSON) then the bot text already updated.
-    // We won't have suggestions in that case unless your server embeds them in-stream.
+    // If no finalJson, then stream may have already written plain text to bot bubble.
 
   } catch (error) {
     console.error("Error:", error);
     if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
-    botMessageElement.innerText = `Error: ${error.message}`;
+    setBotText(botMessageElement, `Error: ${error.message}`);
     updateSuggestions([]);
   } finally {
     isProcessing = false;
@@ -405,11 +383,12 @@ async function sendTask() {
   }
 }
 
+// ---------------- Chat UI utils ----------------
 function addMessage(message, sender) {
   const chatbox = document.getElementById("messages");
   const msgDiv = document.createElement("div");
   msgDiv.className = sender;
-  msgDiv.innerText = message; // innerText is safer than innerHTML
+  msgDiv.innerText = message;
   chatbox.appendChild(msgDiv);
   chatbox.scrollTop = chatbox.scrollHeight;
   return msgDiv;
@@ -429,6 +408,7 @@ function sendClearMap() {
   sendTask();
 }
 
+// ---------------- Suggestions ----------------
 function updateSuggestions(suggestions) {
   const container = document.getElementById("suggestions");
   if (!container) return;
