@@ -60,17 +60,12 @@ function appendLog(panel, line) {
 // Extract a user-friendly reply from any backend payload without dumping JSON
 function extractReply(payload) {
   if (!payload) return "";
-
-  // Most common
   if (typeof payload.message === "string" && payload.message.trim()) return payload.message.trim();
   if (typeof payload.response === "string" && payload.response.trim()) return payload.response.trim();
-
-  // Some backends nest in result
-  const r = payload.result;
-  if (r && typeof r.message === "string" && r.message.trim()) return r.message.trim();
-  if (r && typeof r.response === "string" && r.response.trim()) return r.response.trim();
-
-  // Fallback for odd shapes: do NOT show JSON
+  if (payload.result) {
+    if (typeof payload.result.message === "string" && payload.result.message.trim()) return payload.result.message.trim();
+    if (typeof payload.result.response === "string" && payload.result.response.trim()) return payload.result.response.trim();
+  }
   return "Done.";
 }
 
@@ -86,8 +81,7 @@ function applySuggestionsFrom(payload) {
 }
 
 function renderBotResult(botMessageElement, payload) {
-  const reply = extractReply(payload);
-  setBotText(botMessageElement, reply);
+  setBotText(botMessageElement, extractReply(payload));
   applySuggestionsFrom(payload);
 }
 
@@ -142,9 +136,11 @@ function apiBaseFromProcessUrl(processUrl) {
   return processUrl.replace(/\/process$/, "");
 }
 
-// ---------------- Stream reader ----------------
+// ---------------- Stream reader (FIXED) ----------------
 async function readStreamedResponse(response, botMessageElement, spinner) {
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
+
+  // NDJSON / SSE-like progress
   const isNdjson =
     contentType.includes("application/x-ndjson") ||
     contentType.includes("application/ndjson") ||
@@ -152,15 +148,23 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
 
   const logPanel = ensureLogPanel(botMessageElement);
 
+  // If there is no streaming reader (rare), attempt json then text
   if (!response.body || !response.body.getReader) {
-    const data = await response.json();
-    return { finalJson: data };
+    try {
+      const data = await response.json();
+      return { finalJson: data };
+    } catch {
+      const t = await response.text();
+      const obj = safeJsonParse(t.trim());
+      return { finalJson: obj, rawText: t };
+    }
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
   let finalJson = null;
+  let plainTextAll = ""; // <-- key: buffer ALL non-NDJSON text
 
   // Reset bot text but keep spinner
   setBotText(botMessageElement, "");
@@ -170,9 +174,10 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
     const { value, done } = await reader.read();
     if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
+    const chunk = decoder.decode(value, { stream: true });
 
     if (isNdjson) {
+      buffer += chunk;
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() || "";
 
@@ -206,20 +211,32 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
         }
       }
     } else {
-      // Plain text stream
-      appendBotText(botMessageElement, buffer);
-      buffer = "";
+      // IMPORTANT FIX:
+      // Do NOT print raw JSON text to user while streaming.
+      // Accumulate it, and at the end try JSON.parse().
+      plainTextAll += chunk;
     }
   }
 
-  // Tail flush
-  const tail = buffer.trim();
-  if (tail && isNdjson) {
-    const obj = safeJsonParse(tail);
-    if (obj) finalJson = obj;
-    else appendLog(logPanel, tail);
-  } else if (tail && !isNdjson) {
-    appendBotText(botMessageElement, tail);
+  // Flush tail for NDJSON
+  if (isNdjson) {
+    const tail = buffer.trim();
+    if (tail) {
+      const obj = safeJsonParse(tail);
+      if (obj) finalJson = obj;
+      else appendLog(logPanel, tail);
+    }
+  } else {
+    // For non-NDJSON: parse full body as JSON if possible
+    const t = plainTextAll.trim();
+    const obj = safeJsonParse(t);
+    if (obj) {
+      finalJson = obj;
+    } else {
+      // If it truly is plain text, show it
+      // (This prevents blank output if server returns text)
+      setBotText(botMessageElement, t || "Done.");
+    }
   }
 
   if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
@@ -262,7 +279,6 @@ async function pollJobStatusByUrl(pollPath, apiProcessUrl, botMessageElement, sp
       appendLog(logPanel, `Status: ${status}`);
     }
 
-    // optional job message (kept in log panel, not main chat)
     if (data.message) appendLog(logPanel, data.message);
 
     if (status === "completed") {
@@ -329,25 +345,21 @@ async function sendTask() {
 
     const { finalJson } = await readStreamedResponse(response, botMessageElement, spinner);
 
-    // If backend returned structured JSON
     if (finalJson) {
       const status = (finalJson.status || "").toLowerCase();
 
       if (status === "queued") {
         const pollPath = finalJson.poll || (finalJson.job_id ? `/status/${encodeURIComponent(finalJson.job_id)}` : null);
 
-        // Do NOT show raw JSON; show a friendly queued message
+        // Show friendly queued message (not JSON)
         setBotText(botMessageElement, finalJson.message || "Queued. Working on it...");
+
+        applySuggestionsFrom(finalJson);
 
         if (pollPath) {
           if (!spinner.parentNode) botMessageElement.appendChild(spinner);
           await pollJobStatusByUrl(pollPath, apiUrl, botMessageElement, spinner);
-        } else {
-          if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
-          appendBotText(botMessageElement, "\n(Queued but missing poll link.)");
         }
-
-        applySuggestionsFrom(finalJson);
         return;
       }
 
@@ -356,7 +368,7 @@ async function sendTask() {
       return;
     }
 
-    // If it was plain text streaming, we already displayed it in the bubble.
+    // If it was real plain text, readStreamedResponse already wrote it.
 
   } catch (error) {
     console.error("Error:", error);
