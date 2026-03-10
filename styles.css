@@ -241,3 +241,37 @@ body {
 canvas {
   display: none;
 }
+
+
+.env-banner {
+  margin: 10px 15px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #eef6ff;
+  color: #0b57d0;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #cfe2ff;
+}
+
+.dropdown-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  color: #333;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.dropdown-toggle-row:hover {
+  background-color: #f1f1f1;
+}
+
+.dropdown-toggle-row input {
+  margin: 0;
+  cursor: pointer;
+}

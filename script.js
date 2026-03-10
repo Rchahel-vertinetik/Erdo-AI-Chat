@@ -1,4 +1,5 @@
 let isProcessing = false;
+const DEV_MODE_STORAGE_KEY = "erdo_ai_chat_dev_mode";
 
 const INITIAL_SUGGESTIONS = [
   "Show me diseased trees?",
@@ -90,6 +91,8 @@ window.onload = () => {
   const input = document.getElementById("userInput");
   if (input) input.focus();
 
+  initializeDevModeToggle();
+
   const toggleBtn = document.getElementById("toggleSuggestions");
   if (toggleBtn) {
     toggleBtn.onclick = () => {
@@ -121,9 +124,55 @@ function getTaskNameFromURL() {
   return params.get("task_name") || "default_task";
 }
 
-function isDevMode() {
+function getUrlDevPreference() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("dev") === "true";
+  const value = (params.get("dev") || "").toLowerCase();
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return null;
+}
+
+function getStoredDevPreference() {
+  const value = localStorage.getItem(DEV_MODE_STORAGE_KEY);
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return null;
+}
+
+function isDevMode() {
+  const stored = getStoredDevPreference();
+  if (stored !== null) return stored;
+
+  const urlPreference = getUrlDevPreference();
+  return urlPreference === true;
+}
+
+function setDevMode(enabled) {
+  localStorage.setItem(DEV_MODE_STORAGE_KEY, enabled ? "true" : "false");
+  syncDevModeUI();
+}
+
+function syncDevModeUI() {
+  const betaToggle = document.getElementById("betaToggle");
+  if (betaToggle) betaToggle.checked = isDevMode();
+
+  const envBanner = document.getElementById("envBanner");
+  if (envBanner) envBanner.hidden = !isDevMode();
+}
+
+function initializeDevModeToggle() {
+  if (getStoredDevPreference() === null) {
+    const urlPreference = getUrlDevPreference();
+    if (urlPreference !== null) {
+      localStorage.setItem(DEV_MODE_STORAGE_KEY, urlPreference ? "true" : "false");
+    }
+  }
+
+  syncDevModeUI();
+}
+
+function handleBetaToggle(event) {
+  setDevMode(Boolean(event?.target?.checked));
 }
 
 function getApiUrl() {

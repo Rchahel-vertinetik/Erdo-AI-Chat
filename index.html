@@ -25,12 +25,19 @@
             <div class="dropdown-content">
               <button onclick="clearChat()">🧹 Clear Chat</button>
               <button onclick="sendClearMap()">🗺️❌ Clear Map</button>
+              <label class="dropdown-toggle-row" for="betaToggle">
+                <span>🧪 Activate Beta</span>
+                <input type="checkbox" id="betaToggle" onchange="handleBetaToggle(event)">
+              </label>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Messages in center -->
+      <div class="env-banner" id="envBanner" hidden>
+        Beta is active
+      </div>
       <div id="messages"></div>
 
       <!-- Suggestions toggle button -->
