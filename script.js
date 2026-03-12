@@ -1,5 +1,6 @@
 let isProcessing = false;
 const DEV_MODE_STORAGE_KEY = "erdo_ai_chat_dev_mode";
+const CHAT_STORAGE_PREFIX = "erdo_ai_chat_history_";
 
 const INITIAL_SUGGESTIONS = [
   "Show me diseased trees?",
@@ -15,16 +16,92 @@ function safeJsonParse(line) {
   try { return JSON.parse(line); } catch { return null; }
 }
 
+function getTaskNameFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("task_name") || "default_task";
+}
+
+function getChatStorageKey() {
+  return `${CHAT_STORAGE_PREFIX}${getTaskNameFromURL()}`;
+}
+
+function serializeChatMessage(el) {
+  if (!(el instanceof HTMLElement)) return null;
+
+  const sender = el.classList.contains("user") ? "user" : "bot";
+  const payload = {
+    sender,
+    html: el.innerHTML
+  };
+
+  return payload;
+}
+
+function hydrateChatMessage(message) {
+  if (!message || !message.sender || typeof message.html !== "string") return null;
+
+  const msgDiv = document.createElement("div");
+  msgDiv.className = message.sender === "user" ? "user" : "bot";
+  msgDiv.innerHTML = message.html;
+  return msgDiv;
+}
+
+function saveChatHistory() {
+  const chatbox = document.getElementById("messages");
+  if (!chatbox) return;
+
+  const messages = [...chatbox.children]
+    .map(serializeChatMessage)
+    .filter(Boolean);
+
+  try {
+    localStorage.setItem(getChatStorageKey(), JSON.stringify(messages));
+  } catch (error) {
+    console.error("Failed to save chat history", error);
+  }
+}
+
+function loadChatHistory() {
+  const chatbox = document.getElementById("messages");
+  if (!chatbox) return false;
+
+  const raw = localStorage.getItem(getChatStorageKey());
+  if (!raw) return false;
+
+  try {
+    const messages = JSON.parse(raw);
+    if (!Array.isArray(messages) || messages.length === 0) return false;
+
+    chatbox.innerHTML = "";
+    messages.forEach((message) => {
+      const msgDiv = hydrateChatMessage(message);
+      if (msgDiv) chatbox.appendChild(msgDiv);
+    });
+
+    chatbox.scrollTop = chatbox.scrollHeight;
+    return chatbox.children.length > 0;
+  } catch (error) {
+    console.error("Failed to load chat history", error);
+    return false;
+  }
+}
+
+function clearStoredChatHistory() {
+  localStorage.removeItem(getChatStorageKey());
+}
+
 function setBotText(el, text) {
   el.textContent = text ?? "";
   const chatbox = document.getElementById("messages");
   if (chatbox) chatbox.scrollTop = chatbox.scrollHeight;
+  saveChatHistory();
 }
 
 function appendBotText(el, text) {
   el.textContent += text ?? "";
   const chatbox = document.getElementById("messages");
   if (chatbox) chatbox.scrollTop = chatbox.scrollHeight;
+  saveChatHistory();
 }
 
 function ensureLogPanel(botMessageElement) {
@@ -42,12 +119,16 @@ function ensureLogPanel(botMessageElement) {
     panel.style.whiteSpace = "pre-wrap";
     panel.style.display = "none";
     botMessageElement.appendChild(panel);
+    saveChatHistory();
   }
   return panel;
 }
 
 function showLog(panel) {
-  if (panel) panel.style.display = "block";
+  if (panel) {
+    panel.style.display = "block";
+    saveChatHistory();
+  }
 }
 
 function appendLog(panel, line) {
@@ -56,6 +137,7 @@ function appendLog(panel, line) {
   panel.textContent += (panel.textContent ? "\n" : "") + String(line);
   const chatbox = document.getElementById("messages");
   if (chatbox) chatbox.scrollTop = chatbox.scrollHeight;
+  saveChatHistory();
 }
 
 // Extract a user-friendly reply from any backend payload without dumping JSON
@@ -103,7 +185,10 @@ window.onload = () => {
     syncToggleButton();
   }
 
-  updateSuggestions(INITIAL_SUGGESTIONS);
+  const hasStoredChat = loadChatHistory();
+  if (!hasStoredChat) {
+    updateSuggestions(INITIAL_SUGGESTIONS);
+  }
 };
 
 function syncToggleButton() {
@@ -117,11 +202,6 @@ function handleKeyPress(event) {
     event.preventDefault();
     sendTask();
   }
-}
-
-function getTaskNameFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("task_name") || "default_task";
 }
 
 function getUrlDevPreference() {
@@ -185,11 +265,10 @@ function apiBaseFromProcessUrl(processUrl) {
   return processUrl.replace(/\/process$/, "");
 }
 
-// ---------------- Stream reader (FIXED) ----------------
+// ---------------- Stream reader ----------------
 async function readStreamedResponse(response, botMessageElement, spinner) {
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
 
-  // NDJSON / SSE-like progress
   const isNdjson =
     contentType.includes("application/x-ndjson") ||
     contentType.includes("application/ndjson") ||
@@ -197,7 +276,6 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
 
   const logPanel = ensureLogPanel(botMessageElement);
 
-  // If there is no streaming reader (rare), attempt json then text
   if (!response.body || !response.body.getReader) {
     try {
       const data = await response.json();
@@ -213,11 +291,13 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
   let finalJson = null;
-  let plainTextAll = ""; // <-- key: buffer ALL non-NDJSON text
+  let plainTextAll = "";
 
-  // Reset bot text but keep spinner
   setBotText(botMessageElement, "");
-  if (spinner && !spinner.parentNode) botMessageElement.appendChild(spinner);
+  if (spinner && !spinner.parentNode) {
+    botMessageElement.appendChild(spinner);
+    saveChatHistory();
+  }
 
   while (true) {
     const { value, done } = await reader.read();
@@ -260,14 +340,10 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
         }
       }
     } else {
-      // IMPORTANT FIX:
-      // Do NOT print raw JSON text to user while streaming.
-      // Accumulate it, and at the end try JSON.parse().
       plainTextAll += chunk;
     }
   }
 
-  // Flush tail for NDJSON
   if (isNdjson) {
     const tail = buffer.trim();
     if (tail) {
@@ -276,19 +352,19 @@ async function readStreamedResponse(response, botMessageElement, spinner) {
       else appendLog(logPanel, tail);
     }
   } else {
-    // For non-NDJSON: parse full body as JSON if possible
     const t = plainTextAll.trim();
     const obj = safeJsonParse(t);
     if (obj) {
       finalJson = obj;
     } else {
-      // If it truly is plain text, show it
-      // (This prevents blank output if server returns text)
       setBotText(botMessageElement, t || "Done.");
     }
   }
 
-  if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
+  if (spinner && spinner.parentNode) {
+    spinner.parentNode.removeChild(spinner);
+    saveChatHistory();
+  }
 
   return { finalJson };
 }
@@ -306,7 +382,10 @@ async function pollJobStatusByUrl(pollPath, apiProcessUrl, botMessageElement, sp
 
   while (true) {
     if (Date.now() - start > maxMs) {
-      if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
+      if (spinner && spinner.parentNode) {
+        spinner.parentNode.removeChild(spinner);
+        saveChatHistory();
+      }
       setBotText(botMessageElement, "Timed out waiting for background job. Please try again.");
       return;
     }
@@ -331,13 +410,19 @@ async function pollJobStatusByUrl(pollPath, apiProcessUrl, botMessageElement, sp
     if (data.message) appendLog(logPanel, data.message);
 
     if (status === "completed") {
-      if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
+      if (spinner && spinner.parentNode) {
+        spinner.parentNode.removeChild(spinner);
+        saveChatHistory();
+      }
       renderBotResult(botMessageElement, data);
       return;
     }
 
     if (status === "failed") {
-      if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
+      if (spinner && spinner.parentNode) {
+        spinner.parentNode.removeChild(spinner);
+        saveChatHistory();
+      }
       const err = data.error || data.message || "Job failed.";
       setBotText(botMessageElement, `Error: ${err}`);
       updateSuggestions([]);
@@ -368,6 +453,7 @@ async function sendTask() {
   spinner.className = "logo-spinner";
   spinner.alt = "Loading...";
   botMessageElement.appendChild(spinner);
+  saveChatHistory();
 
   const apiUrl = getApiUrl();
 
@@ -400,28 +486,28 @@ async function sendTask() {
       if (status === "queued") {
         const pollPath = finalJson.poll || (finalJson.job_id ? `/status/${encodeURIComponent(finalJson.job_id)}` : null);
 
-        // Show friendly queued message (not JSON)
         setBotText(botMessageElement, finalJson.message || "Queued. Working on it...");
-
         applySuggestionsFrom(finalJson);
 
         if (pollPath) {
-          if (!spinner.parentNode) botMessageElement.appendChild(spinner);
+          if (!spinner.parentNode) {
+            botMessageElement.appendChild(spinner);
+            saveChatHistory();
+          }
           await pollJobStatusByUrl(pollPath, apiUrl, botMessageElement, spinner);
         }
         return;
       }
 
-      // Completed inline / normal
       renderBotResult(botMessageElement, finalJson);
       return;
     }
-
-    // If it was real plain text, readStreamedResponse already wrote it.
-
   } catch (error) {
     console.error("Error:", error);
-    if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
+    if (spinner && spinner.parentNode) {
+      spinner.parentNode.removeChild(spinner);
+      saveChatHistory();
+    }
     setBotText(botMessageElement, `Error: ${error.message}`);
     updateSuggestions([]);
   } finally {
@@ -440,12 +526,15 @@ function addMessage(message, sender) {
   msgDiv.innerText = message;
   chatbox.appendChild(msgDiv);
   chatbox.scrollTop = chatbox.scrollHeight;
+  saveChatHistory();
   return msgDiv;
 }
 
 function clearChat() {
   const chatbox = document.getElementById("messages");
-  chatbox.innerHTML = "";
+  if (chatbox) chatbox.innerHTML = "";
+
+  clearStoredChatHistory();
 
   suggestionsVisible = true;
   updateSuggestions(INITIAL_SUGGESTIONS);
